@@ -17,6 +17,7 @@ const COLLISION_COUNTER_START: u32 = 2;
 
 pub fn handle_move_to_trash(_trash_dirs: &[PathBuf], files: &[String]) -> Result<(), AppError> {
     let mounts = mountpoints::mountpaths()?;
+    let mut trashed: Vec<String> = Vec::new();
     for file in files {
         let path = Path::new(file);
         match get_target_trash(path, &mounts) {
@@ -27,11 +28,14 @@ pub fn handle_move_to_trash(_trash_dirs: &[PathBuf], files: &[String]) -> Result
                 }
                 if let Err(e) = trash_item(path, &target_trash) {
                     eprintln!("Failed to trash '{}': {}", path.display(), e);
+                } else {
+                    trashed.push(file.clone());
                 }
             }
             Err(e) => eprintln!("Could not determine trash location for '{}': {}", path.display(), e),
         }
     }
+    println!("- trashed: {}", trashed.join(", "));
     Ok(())
 }
 
@@ -91,8 +95,6 @@ fn trash_item(source_path: &Path, target_trash: &TargetTrash) -> Result<(), AppE
             });
         }
     }
-
-    println!("- trashed: {}", source_path.display());
 
     Ok(())
 }
