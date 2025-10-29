@@ -52,10 +52,6 @@ pub enum AppError {
     #[error("Failed to read mount points: {0}")]
     Mountpoints(#[from] mountpoints::Error),
 
-    /// A generic, message-based error.
-    #[error("{0}")]
-    Message(String),
-
     /// Error when converting system time.
     #[error("System time error: {0}")]
     SystemTime(#[from] SystemTimeError),
@@ -63,6 +59,14 @@ pub enum AppError {
     /// Error when converting a byte vector to a UTF-8 string.
     #[error("UTF-8 conversion error: {0}")]
     FromUtf8(#[from] FromUtf8Error),
+
+    /// A generic, message-based error.
+    #[error("{0}")]
+    Message(String),
+
+    /// No output error
+    #[error("Ignorable Error")]
+    Ignorable,
 }
 
 /// Allows converting from a string slice to our custom error type.

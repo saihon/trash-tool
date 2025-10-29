@@ -179,7 +179,7 @@ pub fn handle_interactive_restore(mut skim_options: SkimOptions) -> Result<(), A
         println!("{}", message);
     }
     if had_errors {
-        return Err(AppError::Message("One or more items failed to restore.".to_string()));
+        return Err(AppError::Ignorable);
     }
     Ok(())
 }
