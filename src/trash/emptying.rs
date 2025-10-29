@@ -14,9 +14,9 @@ pub fn handle_empty_trash(trash_dirs: &[PathBuf], no_confirm: bool) -> Result<()
         let is_confirmed = if no_confirm {
             true
         } else {
-            println!("{}", path.display());
             let mut stdin = BufReader::new(io::stdin());
-            confirm_input(&mut stdin, &mut io::stdout())?
+            let message = format!("{}: to empty? [Y/n]: ", path.display());
+            confirm_input(message, &mut stdin, &mut io::stdout())?
         };
         if is_confirmed {
             empty_single_trash_dir(&path)?;
@@ -26,10 +26,10 @@ pub fn handle_empty_trash(trash_dirs: &[PathBuf], no_confirm: bool) -> Result<()
     Ok(())
 }
 
-fn confirm_input<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) -> Result<bool, AppError> {
+fn confirm_input<R: BufRead, W: Write>(message: String, reader: &mut R, writer: &mut W) -> Result<bool, AppError> {
     let mut input = String::new();
     loop {
-        write!(writer, "Do you want to empty? [Y/n]: ")?;
+        write!(writer, "{}", message)?;
         writer.flush()?;
         reader.read_line(&mut input)?;
         let trimmed_input = input.trim().to_lowercase();
@@ -116,8 +116,9 @@ mod tests {
         for case in test_cases {
             let mut reader = Cursor::new(case.input);
             let mut writer = Vec::new();
+            let message = "Do you want to empty? [Y/n]: ".to_string();
 
-            let result = confirm_input(&mut reader, &mut writer).unwrap();
+            let result = confirm_input(message, &mut reader, &mut writer).unwrap();
 
             assert_eq!(result, case.expected_result, "Failed on: {}", case.description);
 
@@ -131,8 +132,9 @@ mod tests {
         let input = "maybe\nyes\n";
         let mut reader = Cursor::new(input);
         let mut writer = Vec::new();
+        let message = "Do you want to empty? [Y/n]: ".to_string();
 
-        let result = confirm_input(&mut reader, &mut writer).unwrap();
+        let result = confirm_input(message, &mut reader, &mut writer).unwrap();
 
         assert!(result, "Should return true after an invalid input");
 
