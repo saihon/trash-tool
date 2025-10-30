@@ -143,6 +143,18 @@ For persistent settings, it is recommended to use the `TRASH_TOOL_OPTIONS` envir
 export TRASH_TOOL_OPTIONS="--multi --layout reverse --height 50%"
 ```
 
+**Example for preview:**
+
+~/preview.sh
+```sh
+bat "${1#* <= }"
+```
+
+~/.bashrc
+```sh
+export TRASH_TOOL_OPTIONS="--preview '~/preview.sh {}'"
+```
+
 ### Command-Line Options
 
 You can also specify `ui` options directly on the command line. These will override any settings from the environment variable.

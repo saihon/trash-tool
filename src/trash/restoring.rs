@@ -28,7 +28,12 @@ struct TrashEntry {
 
 impl SkimItem for TrashEntry {
     fn text(&self) -> Cow<'_, str> {
-        Cow::Owned(format!("{}  {}", self.deletion_date, self.original_path.display()))
+        Cow::Owned(format!(
+            "{}  {} <= {}",
+            self.deletion_date,
+            self.original_path.display(),
+            self.trashed_path.display()
+        ))
     }
 }
 
