@@ -255,8 +255,7 @@ mod tests {
         };
 
         // Define the expected output format.
-        let expected_text = "2024-01-01T12:00:00  /home/user/documents/test.txt";
-
+        let expected_text = "2024-01-01T12:00:00  /home/user/documents/test.txt <= /trash/files/test.txt";
         // Call the `text` method and assert that the output is correct.
         assert_eq!(
             entry.text(),
