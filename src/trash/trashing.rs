@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::Local;
 
+use crate::trash::color::colorize_path;
 use crate::trash::error::AppError;
 use crate::trash::locations::{get_target_trash, TargetTrash};
 use crate::trash::spec::{
@@ -29,13 +30,13 @@ pub fn handle_move_to_trash(_trash_dirs: &[PathBuf], files: &[String]) -> Result
                 if let Err(e) = trash_item(path, &target_trash) {
                     eprintln!("Failed to trash '{}': {}", path.display(), e);
                 } else {
-                    trashed.push(file.clone());
+                    trashed.push(colorize_path(&file, path).to_string());
                 }
             }
             Err(e) => eprintln!("Could not determine trash location for '{}': {}", path.display(), e),
         }
     }
-    println!("- trashed: {}", trashed.join(", "));
+    println!("Trashed: {}", trashed.join(", "));
     Ok(())
 }
 
