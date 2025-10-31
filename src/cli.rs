@@ -55,14 +55,14 @@ pub enum Commands {
 
 const TRASH_TOOL_OPTIONS: &str = "TRASH_TOOL_OPTIONS";
 
-fn parse_subcommand_with_env(cli_args: Vec<String>) -> Result<Option<Commands>, AppError> {
+fn build_skim_options(cli_args: Vec<String>) -> Result<Option<Commands>, AppError> {
     let mut skim_args = vec![cli_args[0].clone()];
 
     skim_args.extend(shlex::split(&env::var(TRASH_TOOL_OPTIONS).unwrap_or_default()).unwrap_or_default());
 
-    let skim_pos = cli_args.iter().position(|arg| arg == "skim");
-    if skim_pos.is_some() {
-        skim_args.extend_from_slice(&cli_args[skim_pos.unwrap() + 1..]);
+    let subcmd_pos = cli_args.iter().position(|arg| arg == "ui");
+    if subcmd_pos.is_some() {
+        skim_args.extend_from_slice(&cli_args[subcmd_pos.unwrap() + 1..]);
     }
 
     let skim_options = SkimOptions::try_parse_from(skim_args).map_err(|e| AppError::Message(e.to_string()))?;
@@ -75,7 +75,7 @@ pub fn parse_args() -> Result<Args, AppError> {
     let mut args = Args::parse();
 
     if args.restore {
-        args.command = parse_subcommand_with_env(env::args().collect())?;
+        args.command = build_skim_options(env::args().collect())?;
     }
 
     Ok(args)
@@ -93,11 +93,11 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_parse_subcommand_with_env_no_args_no_env() {
+    fn test_build_skim_options_no_args_no_env() {
         env::remove_var(TRASH_TOOL_OPTIONS);
         let cli_args = vec!["trash-tool".to_string(), "-r".to_string()];
 
-        let result = parse_subcommand_with_env(cli_args);
+        let result = build_skim_options(cli_args);
 
         assert!(result.is_ok());
         let command = result.unwrap();
@@ -112,11 +112,11 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_parse_subcommand_with_env_only_env() {
+    fn test_build_skim_options_only_env() {
         env::set_var(TRASH_TOOL_OPTIONS, "--multi --height 50%");
         let cli_args = vec!["trash-tool".to_string(), "-r".to_string()];
 
-        let result = parse_subcommand_with_env(cli_args);
+        let result = build_skim_options(cli_args);
 
         assert!(result.is_ok());
         if let Some(Commands::UI(options)) = result.unwrap() {
@@ -136,13 +136,13 @@ mod tests {
         let cli_args = vec![
             "trash-tool".to_string(),
             "-r".to_string(),
-            "skim".to_string(),
+            "ui".to_string(),
             "--multi".to_string(),
             "--height".to_string(),
             "50%".to_string(),
         ];
 
-        let result = parse_subcommand_with_env(cli_args);
+        let result = build_skim_options(cli_args);
 
         assert!(result.is_ok());
         if let Some(Commands::UI(options)) = result.unwrap() {
@@ -157,17 +157,17 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_parse_subcommand_with_env_cli_overrides_env() {
+    fn test_build_skim_options_cli_overrides_env() {
         env::set_var(TRASH_TOOL_OPTIONS, "--multi --height 50%");
         let cli_args = vec![
             "trash-tool".to_string(),
             "-r".to_string(),
-            "skim".to_string(),
+            "ui".to_string(),
             "--height".to_string(),
             "80%".to_string(),
         ];
 
-        let result = parse_subcommand_with_env(cli_args).unwrap().unwrap();
+        let result = build_skim_options(cli_args).unwrap().unwrap();
 
         let Commands::UI(options) = result;
         assert!(options.multi, "Should inherit --multi from env");
