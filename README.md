@@ -1,6 +1,6 @@
 # tt (Trash-tool) - A Modern Command-Line Trash Can
 
-`tt` is a spec-compliant command-line trash can utility for Unix-like systems, written in Rust. It provides a safe alternative to `rm` by moving files to the trash, with features for listing, restoring, and emptying.
+`tt` is a spec-compliant command-line trash can utility for Linux systems, written in Rust. It provides a safe alternative to `rm` by moving files to the trash, with features for listing, restoring, and emptying.
 
 ## Features
 
@@ -39,8 +39,8 @@ sudo mv tt /usr/local/bin/
 If you have the Rust toolchain installed, you can build and install `tt` from source.
 
 ```sh
-git clone <repository-url>
-cd trash-command
+git clone https://github.com/saihon/trash-tool
+cd trash-tool
 cargo install --path .
 ```
 
@@ -78,6 +78,7 @@ You can specify one of the following actions. If no action or file is provided, 
 
 ### General Options
 
+*   `-a, --all`: Perform the operation (list/empty) on all found trash directories.
 *   `-y, --no-confirm`: Automatically answer "yes" to confirmation prompts (e.g., for emptying the trash).
 *   `--color <WHEN>`: Controls when to use colors. Possible values: `auto` (default), `always`, `never`.
 *   `-h, --help`: Print help information.
@@ -97,15 +98,25 @@ The restore action (`-r` or `--restore`) is powered by `skim` and can be customi
 
 ### Listing Trash Contents
 
-*   To display the contents of the trash:
+*   To display the contents of the trash for the current filesystem:
     ```sh
     tt
-    # or
+    # same
     tt -d
+    ```
+*   To display contents from **all** trash directories (including external drives):
+    ```sh
+    tt -a
+    # same
+    tt -ad
     ```
 *   To list contents in a detailed, long format (similar to `ls -l`):
     ```sh
     tt -l
+    ```
+*   To list detailed contents from **all** trash directories:
+    ```sh
+    tt -al
     ```
 
 ### Restoring Items from Trash
@@ -114,18 +125,26 @@ The restore action (`-r` or `--restore`) is powered by `skim` and can be customi
     ```sh
     tt -r
     ```
+*   To restore from **all** trash directories:
+    ```sh
+    tt -ar
+    ```
 
 ### Emptying the Trash
 
-*   To empty all trash directories with a confirmation prompt:
+*   To empty the trash directory for the current filesystem:
     ```sh
     tt -e
     ```
 *   To empty the trash without any confirmation:
     ```sh
     tt -y
-    # or
+    # same
     tt -ey
+    ```
+*   To empty **all** trash directories across all filesystems:
+    ```sh
+    tt -ae
     ```
 *   Use in conjunction with content display:
     ```sh

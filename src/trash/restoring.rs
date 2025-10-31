@@ -7,7 +7,7 @@ use regex::Regex;
 use skim::{prelude::*, SkimOptions};
 
 use crate::trash::error::AppError;
-use crate::trash::locations::find_all_trash_dirs;
+use crate::trash::locations::get_target_trash_dirs;
 use crate::trash::spec::{
     TRASH_FILES_DIR_NAME, TRASH_INFO_DATE_KEY, TRASH_INFO_DIR_NAME, TRASH_INFO_EXTENSION, TRASH_INFO_PATH_KEY,
     TRASH_INFO_SUFFIX,
@@ -39,12 +39,6 @@ impl SkimItem for TrashEntry {
 
 static PATH_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!(r"^{}=(.*)$", TRASH_INFO_PATH_KEY)).unwrap());
 static DATE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!(r"^{}=(.*)$", TRASH_INFO_DATE_KEY)).unwrap());
-
-/// Finds all trash entries by scanning .trashinfo files.
-fn find_trash_entries() -> Result<Vec<TrashEntry>, AppError> {
-    let trash_dirs = find_all_trash_dirs()?;
-    find_trash_entries_in_dirs(&trash_dirs)
-}
 
 fn get_capture(re: &Regex, line: &str) -> Option<String> {
     re.captures(line)
@@ -126,8 +120,9 @@ fn find_trash_entries_in_dirs(trash_dirs: &[PathBuf]) -> Result<Vec<TrashEntry>,
 }
 
 /// Interactively select and restore items from the trash.
-pub fn handle_interactive_restore(mut skim_options: SkimOptions) -> Result<(), AppError> {
-    let entries = find_trash_entries()?;
+pub fn handle_interactive_restore(all_trash: bool, mut skim_options: SkimOptions) -> Result<(), AppError> {
+    let trash_dirs = get_target_trash_dirs(all_trash)?;
+    let entries = find_trash_entries_in_dirs(&trash_dirs)?;
     if entries.is_empty() {
         println!("Trash is empty. Nothing to restore.");
         return Ok(());

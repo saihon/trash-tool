@@ -6,7 +6,7 @@ use chrono::Local;
 
 use crate::trash::color::colorize_path;
 use crate::trash::error::AppError;
-use crate::trash::locations::{get_target_trash, TargetTrash};
+use crate::trash::locations::{resolve_target_trash, TargetTrash};
 use crate::trash::spec::{
     TRASH_INFO_DATE_FORMAT, TRASH_INFO_DATE_KEY, TRASH_INFO_HEADER, TRASH_INFO_PATH_KEY, TRASH_INFO_SUFFIX,
 };
@@ -21,7 +21,7 @@ pub fn handle_move_to_trash(files: &[String]) -> Result<(), AppError> {
     let mut trashed: Vec<String> = Vec::new();
     for file in files {
         let path = Path::new(file);
-        match get_target_trash(path, &mounts) {
+        match resolve_target_trash(path, &mounts) {
             Ok(target_trash) => {
                 if let Err(e) = target_trash.ensure_structure_exists() {
                     eprintln!("Failed to prepare trash directory for '{}': {}", path.display(), e);

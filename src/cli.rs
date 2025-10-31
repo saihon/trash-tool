@@ -17,6 +17,10 @@ pub struct Args {
     #[arg(long = "color", value_name = "WHEN", default_value = "auto", value_parser = ["auto", "always", "never"])]
     pub color: String,
 
+    /// Perform the operation (list/empty) on all found trash directories.
+    #[arg(short = 'a', long, action = ArgAction::SetTrue)]
+    pub all: bool,
+
     /// Display the contents of the trash directories.
     #[arg(short = 'd', long, action = ArgAction::SetTrue)]
     pub display: bool,

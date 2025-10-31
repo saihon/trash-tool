@@ -11,7 +11,7 @@ pub mod restoring;
 pub mod trashing;
 
 pub use color::apply_color_setting;
-pub use emptying::handle_empty_trash;
+pub use emptying::{handle_empty_trash, EmptyTrashOptions};
 pub use error::AppError;
 pub use listing::handle_display_trash;
 pub use restoring::handle_interactive_restore;

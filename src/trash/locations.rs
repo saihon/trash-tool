@@ -1,3 +1,4 @@
+use std::env;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 use std::os::unix::fs::PermissionsExt;
@@ -127,7 +128,26 @@ impl TargetTrash {
     }
 }
 
-pub fn get_target_trash(path_to_trash: &Path, mounts: &[PathBuf]) -> Result<TargetTrash, AppError> {
+/// Gets the trash directories to operate on, either all available or just the one for the current context.
+pub fn get_target_trash_dirs(all_trash: bool) -> Result<Vec<PathBuf>, AppError> {
+    let trash_dirs = if all_trash {
+        find_all_trash_dirs()?
+    } else {
+        let current_dir_path = env::current_dir()?;
+        let mounts = mountpoints::mountpaths()?;
+        let target_trash = resolve_target_trash(&current_dir_path, &mounts)?;
+        vec![target_trash.root_path().to_path_buf()]
+    };
+    Ok(trash_dirs)
+}
+
+/// Determines the correct trash directory for a given path.
+///
+/// This function follows the FreeDesktop.org Trash Specification. It checks if the
+/// file is on the same filesystem as the user's home directory. If so, it returns
+/// the home trash. Otherwise, it returns a trash directory on the file's own
+/// filesystem (`$topdir/.Trash` or `$topdir/.Trash-$uid`).
+pub fn resolve_target_trash(path_to_trash: &Path, mounts: &[PathBuf]) -> Result<TargetTrash, AppError> {
     let absolute_path = path_to_trash.canonicalize()?;
     let home_trash_path = get_local_trash_path().ok_or_else(|| AppError::Message("Home trash not found".into()))?;
 
@@ -239,7 +259,7 @@ fn find_trash_dirs_on_mounts(uid: u32, mounts_path: &Path) -> Vec<PathBuf> {
 /// 2. Falling back to the default `$HOME/.local/share` if `$XDG_DATA_HOME` is not set.
 ///
 /// This function is a thin wrapper around `get_local_trash_path_from` for production use.
-pub fn get_local_trash_path() -> Option<PathBuf> {
+fn get_local_trash_path() -> Option<PathBuf> {
     get_local_trash_path_from(dirs::data_dir())
 }
 
@@ -252,7 +272,7 @@ fn get_local_trash_path_from(data_dir: Option<PathBuf>) -> Option<PathBuf> {
     })
 }
 
-pub fn find_all_trash_dirs() -> Result<Vec<PathBuf>, AppError> {
+fn find_all_trash_dirs() -> Result<Vec<PathBuf>, AppError> {
     let mut trash_dirs = Vec::new();
 
     match get_local_trash_path() {
@@ -367,7 +387,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_target_trash_for_home_file_uses_home_trash() -> Result<(), AppError> {
+    fn test_resolve_target_trash_for_home_file_uses_home_trash() -> Result<(), AppError> {
         let root = tempdir()?;
         let home = root.path().join("home/user");
         let file_in_home = home.join("file.txt");
@@ -383,7 +403,7 @@ mod tests {
         std::env::set_var("XDG_DATA_HOME", home.join(".local/share"));
 
         let mounts = vec![PathBuf::from("/")];
-        let target_trash = get_target_trash(&file_in_home, &mounts)?;
+        let target_trash = resolve_target_trash(&file_in_home, &mounts)?;
 
         assert_eq!(target_trash.root_path, home_trash_path);
         assert_eq!(target_trash.trash_type, TrashType::Home);
@@ -399,7 +419,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_target_trash_for_external_file() -> Result<(), AppError> {
+    fn test_resolve_target_trash_for_external_file() -> Result<(), AppError> {
         let root = tempdir()?;
         let home = root.path().join("home/user");
         let usb = root.path().join("media/usb");
@@ -417,7 +437,7 @@ mod tests {
         let mounts = vec![PathBuf::from("/"), usb.clone()];
 
         // --- Case 1: No shared or private trash exists, should create private ---
-        let target_trash = get_target_trash(&file_on_usb, &mounts)?;
+        let target_trash = resolve_target_trash(&file_on_usb, &mounts)?;
         assert_eq!(target_trash.trash_type, TrashType::TopdirPrivate);
         assert_eq!(target_trash.root_path, usb.join(format!(".Trash-{}", uid)));
 
@@ -426,19 +446,19 @@ mod tests {
         fs::create_dir(&shared_trash_base)?;
         fs::set_permissions(&shared_trash_base, fs::Permissions::from_mode(0o1777))?;
 
-        let target_trash_shared = get_target_trash(&file_on_usb, &mounts)?;
+        let target_trash_shared = resolve_target_trash(&file_on_usb, &mounts)?;
         assert_eq!(target_trash_shared.trash_type, TrashType::TopdirSharedUser);
         assert_eq!(target_trash_shared.root_path, shared_trash_base.join(uid.to_string()));
 
         // --- Case 3: Shared trash exists but is invalid (no sticky bit), should fall back to private ---
         fs::set_permissions(&shared_trash_base, fs::Permissions::from_mode(0o755))?;
-        let target_trash_fallback = get_target_trash(&file_on_usb, &mounts)?;
+        let target_trash_fallback = resolve_target_trash(&file_on_usb, &mounts)?;
         assert_eq!(target_trash_fallback.trash_type, TrashType::TopdirPrivate);
 
         // --- Case 4: Shared trash path is a file, should fall back to private ---
         fs::remove_dir(&shared_trash_base)?;
         File::create(&shared_trash_base)?;
-        let target_trash_fallback_file = get_target_trash(&file_on_usb, &mounts)?;
+        let target_trash_fallback_file = resolve_target_trash(&file_on_usb, &mounts)?;
         assert_eq!(target_trash_fallback_file.trash_type, TrashType::TopdirPrivate);
 
         // Restore env var
@@ -452,7 +472,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_target_trash_symlink_check() -> Result<(), AppError> {
+    fn test_resolve_target_trash_symlink_check() -> Result<(), AppError> {
         let root = tempdir()?;
         let home = root.path().join("home/user");
         let real_trash = root.path().join("real_trash");
@@ -474,7 +494,7 @@ mod tests {
 
         #[cfg(unix)]
         {
-            let result = get_target_trash(&file_in_home, &mounts);
+            let result = resolve_target_trash(&file_in_home, &mounts);
             assert!(matches!(result, Err(AppError::SymbolicLink { .. })));
         }
 
@@ -498,7 +518,7 @@ mod tests {
 
         // Provide an empty list of mounts, so none will be found for the file.
         let mounts = vec![];
-        let result = get_target_trash(&file, &mounts);
+        let result = resolve_target_trash(&file, &mounts);
 
         assert!(
             matches!(result, Err(AppError::Message(_))),

@@ -9,7 +9,7 @@ use term_grid::{Cell, Direction, Filling, Grid, GridOptions};
 use super::color::{colorize_file_size, colorize_modified, colorize_path, colorize_user_group, format_mode};
 use crate::trash::color::colorize_trash_directory;
 use crate::trash::error::AppError;
-use crate::trash::locations::find_all_trash_dirs;
+use crate::trash::locations::get_target_trash_dirs;
 use crate::trash::spec::TRASH_FILES_DIR_NAME;
 
 #[cfg(unix)]
@@ -18,8 +18,8 @@ use {
     users::{get_group_by_gid, get_user_by_uid},
 };
 
-pub fn handle_display_trash(long_format: bool) -> Result<(), AppError> {
-    let trash_dirs = find_all_trash_dirs()?;
+pub fn handle_display_trash(all_trash: bool, long_format: bool) -> Result<(), AppError> {
+    let trash_dirs = get_target_trash_dirs(all_trash)?;
     if trash_dirs.is_empty() {
         return Err(AppError::NoTrashDirectories);
     }

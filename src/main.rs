@@ -5,7 +5,7 @@ use cli::{parse_args, Commands};
 
 use crate::trash::{
     apply_color_setting, handle_display_trash, handle_empty_trash, handle_interactive_restore, handle_move_to_trash,
-    AppError,
+    AppError, EmptyTrashOptions,
 };
 
 fn main() {
@@ -33,14 +33,19 @@ fn run() -> Result<(), AppError> {
         }
         _ if args.restore => {
             if let Some(Commands::UI(skim_options)) = args.command {
-                handle_interactive_restore(skim_options)?;
+                handle_interactive_restore(args.all, skim_options)?;
             }
         }
         _ if args.empty || args.no_confirm => {
-            handle_empty_trash(args.no_confirm, args.display, args.long)?;
+            handle_empty_trash(EmptyTrashOptions {
+                all_trash: args.all,
+                no_confirm: args.no_confirm,
+                display: args.display,
+                long_format: args.long,
+            })?;
         }
         _ => {
-            handle_display_trash(args.long)?;
+            handle_display_trash(args.all, args.long)?;
         }
     }
 
