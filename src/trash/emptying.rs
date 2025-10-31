@@ -22,7 +22,7 @@ pub fn handle_empty_trash(opts: EmptyTrashOptions) -> Result<(), AppError> {
     let mut writer = io::stdout();
 
     for path in trash_dirs {
-        let (item_count, is_empty) = check_trash_status(&path)?;
+        let (item_count, is_empty) = get_trash_status(&path)?;
         if is_empty {
             println!("({}): {}", item_count, path.display());
             continue;
@@ -48,7 +48,7 @@ pub fn handle_empty_trash(opts: EmptyTrashOptions) -> Result<(), AppError> {
     Ok(())
 }
 
-fn check_trash_status(trash_dir: &Path) -> Result<(usize, bool), AppError> {
+fn get_trash_status(trash_dir: &Path) -> Result<(usize, bool), AppError> {
     let files_dir = trash_dir.join(TRASH_FILES_DIR_NAME);
     let info_dir = trash_dir.join(TRASH_INFO_DIR_NAME);
     let files_dir_count = fs::read_dir(&files_dir)

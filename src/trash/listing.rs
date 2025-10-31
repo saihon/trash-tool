@@ -55,7 +55,7 @@ fn print_absolute_path<W: Write>(writer: &mut W, dir_path: &Path) -> Result<(), 
     Ok(())
 }
 
-fn get_entries(dir_path: &Path) -> Result<Vec<PathBuf>, AppError> {
+fn get_dir_entry_paths(dir_path: &Path) -> Result<Vec<PathBuf>, AppError> {
     let entries = match fs::read_dir(dir_path) {
         Ok(entries) => entries,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -74,7 +74,7 @@ fn get_entries(dir_path: &Path) -> Result<Vec<PathBuf>, AppError> {
 }
 
 fn list_directory_contents<W: Write>(writer: &mut W, dir_path: &Path) -> Result<(), AppError> {
-    let entries = get_entries(dir_path)?;
+    let entries = get_dir_entry_paths(dir_path)?;
 
     if entries.is_empty() {
         writeln!(writer, "  (empty)")?;
@@ -111,7 +111,7 @@ fn list_directory_contents<W: Write>(writer: &mut W, dir_path: &Path) -> Result<
 }
 
 fn list_directory_contents_long<W: Write>(writer: &mut W, dir_path: &Path) -> Result<(), AppError> {
-    let entries = get_entries(dir_path)?;
+    let entries = get_dir_entry_paths(dir_path)?;
 
     if entries.is_empty() {
         writeln!(writer, "  (empty)")?;

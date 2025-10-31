@@ -42,7 +42,7 @@ pub fn handle_move_to_trash(files: &[String]) -> Result<(), AppError> {
 
 /// Checks whether the specified file path is within the root directory of the given trash bin or within its files directory.
 /// This covers both "trash-in-trash" and "dual trash" scenarios.
-fn is_already_in_any_trash_location(source_path: &Path, trash_path: &Path) -> bool {
+fn is_path_in_trash_dir(source_path: &Path, trash_path: &Path) -> bool {
     source_path.starts_with(trash_path)
 }
 
@@ -55,7 +55,7 @@ fn trash_item(source_path: &Path, target_trash: &TargetTrash) -> Result<(), AppE
             source: io::Error::new(ErrorKind::NotFound, "source file not found"),
         });
     }
-    if is_already_in_any_trash_location(source_path, target_trash.root_path()) {
+    if is_path_in_trash_dir(source_path, target_trash.root_path()) {
         return Err(AppError::AlreadyInTrash {
             path: source_path.to_path_buf(),
         });
@@ -391,40 +391,40 @@ mod tests {
     }
 
     #[test]
-    fn test_is_already_in_any_trash_location() {
+    fn test_is_path_in_trash_dir_location() {
         let trash_path = Path::new("/home/user/.local/share/Trash");
 
         // Case 1: Path is inside the 'files' directory of the trash bin.
         let path_in_files = Path::new("/home/user/.local/share/Trash/files/some_file.txt");
         assert!(
-            is_already_in_any_trash_location(path_in_files, trash_path),
+            is_path_in_trash_dir(path_in_files, trash_path),
             "Should return true for a path inside Trash/files"
         );
 
         // Case 2: Path is inside the 'info' directory of the trash bin.
         let path_in_info = Path::new("/home/user/.local/share/Trash/info/some_file.txt.trashinfo");
         assert!(
-            is_already_in_any_trash_location(path_in_info, trash_path),
+            is_path_in_trash_dir(path_in_info, trash_path),
             "Should return true for a path inside Trash/info"
         );
 
         // Case 3: Path is the trash root directory itself.
         let path_is_trash_root = Path::new("/home/user/.local/share/Trash");
         assert!(
-            is_already_in_any_trash_location(path_is_trash_root, trash_path),
+            is_path_in_trash_dir(path_is_trash_root, trash_path),
             "Should return true when the path is the trash root itself"
         );
 
         // Case 4: Path is completely outside the trash bin.
         let outside_path = Path::new("/home/user/documents/another_file.txt");
         assert!(
-            !is_already_in_any_trash_location(outside_path, trash_path),
+            !is_path_in_trash_dir(outside_path, trash_path),
             "Should return false for a path outside the trash bin"
         );
 
         // Case 5: Path is a parent of the trash bin.
         let parent_path = Path::new("/home/user/.local/share");
-        assert!(!is_already_in_any_trash_location(parent_path, trash_path));
+        assert!(!is_path_in_trash_dir(parent_path, trash_path));
     }
 
     #[test]
