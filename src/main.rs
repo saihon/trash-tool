@@ -4,8 +4,8 @@ pub mod trash;
 use cli::{parse_args, Commands};
 
 use crate::trash::{
-    apply_color_setting, find_all_trash_dirs, handle_display_trash, handle_empty_trash, handle_interactive_restore,
-    handle_move_to_trash, AppError,
+    apply_color_setting, handle_display_trash, handle_empty_trash, handle_interactive_restore, handle_move_to_trash,
+    AppError,
 };
 
 fn main() {
@@ -27,28 +27,21 @@ fn run() -> Result<(), AppError> {
 
     apply_color_setting(&args.color);
 
-    if args.restore {
-        if let Some(Commands::UI(skim_options)) = args.command {
-            return handle_interactive_restore(skim_options);
+    match true {
+        _ if !args.files.is_empty() => {
+            handle_move_to_trash(&args.files)?;
         }
-        return Ok(());
-    }
-
-    let trash_dirs = find_all_trash_dirs()?;
-
-    if !args.files.is_empty() {
-        return handle_move_to_trash(&trash_dirs, &args.files);
-    }
-
-    // Default action: if no files are given and no action is specified, display the trash contents.
-    let is_default_action = !(args.long || args.display || args.empty || args.no_confirm);
-
-    if args.long || args.display || is_default_action {
-        handle_display_trash(&trash_dirs, args.long)?;
-    }
-
-    if args.empty || args.no_confirm {
-        handle_empty_trash(&trash_dirs, args.no_confirm)?;
+        _ if args.restore => {
+            if let Some(Commands::UI(skim_options)) = args.command {
+                handle_interactive_restore(skim_options)?;
+            }
+        }
+        _ if args.empty || args.no_confirm => {
+            handle_empty_trash(args.no_confirm, args.display, args.long)?;
+        }
+        _ => {
+            handle_display_trash(args.long)?;
+        }
     }
 
     Ok(())

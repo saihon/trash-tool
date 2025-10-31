@@ -16,7 +16,7 @@ use crate::trash::url_escape::trash_spec_url_encode;
 /// This matches the behavior of popular file managers like Nautilus and Nemo.
 const COLLISION_COUNTER_START: u32 = 2;
 
-pub fn handle_move_to_trash(_trash_dirs: &[PathBuf], files: &[String]) -> Result<(), AppError> {
+pub fn handle_move_to_trash(files: &[String]) -> Result<(), AppError> {
     let mounts = mountpoints::mountpaths()?;
     let mut trashed: Vec<String> = Vec::new();
     for file in files {

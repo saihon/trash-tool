@@ -127,6 +127,12 @@ The restore action (`-r` or `--restore`) is powered by `skim` and can be customi
     # or
     tt -ey
     ```
+*   Use in conjunction with content display:
+    ```sh
+    tt -de
+    # or
+    tt -le
+    ```
 
 ## Configuration
 

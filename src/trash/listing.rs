@@ -9,6 +9,7 @@ use term_grid::{Cell, Direction, Filling, Grid, GridOptions};
 use super::color::{colorize_file_size, colorize_modified, colorize_path, colorize_user_group, format_mode};
 use crate::trash::color::colorize_trash_directory;
 use crate::trash::error::AppError;
+use crate::trash::locations::find_all_trash_dirs;
 use crate::trash::spec::TRASH_FILES_DIR_NAME;
 
 #[cfg(unix)]
@@ -17,26 +18,34 @@ use {
     users::{get_group_by_gid, get_user_by_uid},
 };
 
-pub fn handle_display_trash(trash_dirs: &[PathBuf], long_format: bool) -> Result<(), AppError> {
+pub fn handle_display_trash(long_format: bool) -> Result<(), AppError> {
+    let trash_dirs = find_all_trash_dirs()?;
     if trash_dirs.is_empty() {
         return Err(AppError::NoTrashDirectories);
     }
     let mut writer = io::stdout();
-
     for path in trash_dirs.iter() {
-        let files_dir = path.join(TRASH_FILES_DIR_NAME);
-        print_absolute_path(&files_dir, &mut writer)?;
-
-        if long_format {
-            list_directory_contents_long(&files_dir, &mut writer)?;
-        } else {
-            list_directory_contents(&files_dir, &mut writer)?;
-        }
+        list_directory_contents_single_trash(&mut writer, path, long_format)?;
     }
     Ok(())
 }
 
-fn print_absolute_path<W: Write>(dir_path: &Path, writer: &mut W) -> Result<(), AppError> {
+pub fn list_directory_contents_single_trash<W: Write>(
+    writer: &mut W,
+    trash_dir: &Path,
+    long_format: bool,
+) -> Result<(), AppError> {
+    let files_dir = trash_dir.join(TRASH_FILES_DIR_NAME);
+    print_absolute_path(writer, &files_dir)?;
+    if long_format {
+        list_directory_contents_long(writer, &files_dir)?;
+    } else {
+        list_directory_contents(writer, &files_dir)?;
+    }
+    Ok(())
+}
+
+fn print_absolute_path<W: Write>(writer: &mut W, dir_path: &Path) -> Result<(), AppError> {
     let absolute_path = fs::canonicalize(dir_path).unwrap_or_else(|_| dir_path.to_path_buf());
     writeln!(
         writer,
@@ -64,7 +73,7 @@ fn get_entries(dir_path: &Path) -> Result<Vec<PathBuf>, AppError> {
         .map_err(AppError::from)
 }
 
-fn list_directory_contents<W: Write>(dir_path: &Path, writer: &mut W) -> Result<(), AppError> {
+fn list_directory_contents<W: Write>(writer: &mut W, dir_path: &Path) -> Result<(), AppError> {
     let entries = get_entries(dir_path)?;
 
     if entries.is_empty() {
@@ -101,7 +110,7 @@ fn list_directory_contents<W: Write>(dir_path: &Path, writer: &mut W) -> Result<
     Ok(())
 }
 
-fn list_directory_contents_long<W: Write>(dir_path: &Path, writer: &mut W) -> Result<(), AppError> {
+fn list_directory_contents_long<W: Write>(writer: &mut W, dir_path: &Path) -> Result<(), AppError> {
     let entries = get_entries(dir_path)?;
 
     if entries.is_empty() {
@@ -185,7 +194,7 @@ mod tests {
             .unwrap_or_else(|| gid.to_string());
 
         let mut output_buffer = Vec::new();
-        list_directory_contents_long(files_dir, &mut output_buffer)?;
+        list_directory_contents_long(&mut output_buffer, files_dir)?;
 
         let output = String::from_utf8(output_buffer)?;
         let stripped_output = strip_ansi(&output);
@@ -207,7 +216,7 @@ mod tests {
         File::create(files_dir.join("another-file.log"))?;
 
         let mut output_buffer = Vec::new();
-        list_directory_contents(files_dir, &mut output_buffer)?;
+        list_directory_contents(&mut output_buffer, files_dir)?;
 
         let output = String::from_utf8(output_buffer)?;
         let stripped_output = strip_ansi(&output);
@@ -225,7 +234,7 @@ mod tests {
         let empty_dir = temp_dir_empty.path();
 
         let mut output_buffer_empty = Vec::new();
-        list_directory_contents(empty_dir, &mut output_buffer_empty)?;
+        list_directory_contents(&mut output_buffer_empty, empty_dir)?;
 
         let output_empty = String::from_utf8(output_buffer_empty)?;
         let stripped_output_empty = strip_ansi(&output_empty);
@@ -244,7 +253,7 @@ mod tests {
         let non_existent_path = temp_dir.path().join("does-not-exist");
 
         let mut output_buffer = Vec::new();
-        let result = list_directory_contents(&non_existent_path, &mut output_buffer);
+        let result = list_directory_contents(&mut output_buffer, &non_existent_path);
 
         assert!(
             result.is_ok(),
@@ -273,7 +282,7 @@ mod tests {
         fs::set_permissions(&unreadable_dir, perms)?;
 
         let mut output_buffer = Vec::new();
-        let result = list_directory_contents(&unreadable_dir, &mut output_buffer);
+        let result = list_directory_contents(&mut output_buffer, &unreadable_dir);
 
         assert!(result.is_err(), "Expected an I/O error due to permissions");
         if let Err(AppError::Io { path, .. }) = result {

@@ -1,32 +1,65 @@
 use std::fs;
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::trash::error::AppError;
+use crate::trash::listing::list_directory_contents_single_trash;
+use crate::trash::locations::find_all_trash_dirs;
 use crate::trash::spec::{TRASH_FILES_DIR_NAME, TRASH_INFO_DIR_NAME};
 
-pub fn handle_empty_trash(trash_dirs: &[PathBuf], no_confirm: bool) -> Result<(), AppError> {
+pub fn handle_empty_trash(no_confirm: bool, display: bool, long_format: bool) -> Result<(), AppError> {
+    let trash_dirs = find_all_trash_dirs()?;
     if trash_dirs.is_empty() {
         return Ok(());
     }
+    let mut writer = io::stdout();
 
     for path in trash_dirs {
-        let is_confirmed = if no_confirm {
-            true
+        let (item_count, is_empty) = check_trash_status(&path)?;
+        if is_empty {
+            println!("Already empty at: ({}) {}", item_count, path.display());
+            continue;
+        }
+
+        if display || long_format {
+            list_directory_contents_single_trash(&mut writer, &path, long_format)?;
+        } else {
+            println!("Empty trash at: ({}) {}", item_count, path.display());
+        }
+
+        if no_confirm {
+            empty_single_trash_dir(&path)?;
         } else {
             let mut stdin = BufReader::new(io::stdin());
-            let message = format!("{}: to empty? [Y/n]: ", path.display());
-            confirm_input(message, &mut stdin, &mut io::stdout())?
+            let message = format!("Do you want to empty? [Y/n]: ");
+            if confirm_input(&mut stdin, &mut writer, message)? {
+                empty_single_trash_dir(&path)?;
+            }
         };
-        if is_confirmed {
-            empty_single_trash_dir(&path)?;
-            println!("Emptied trash at: {}", path.display());
-        }
+        println!("Emptied trash at: {}", path.display());
     }
     Ok(())
 }
 
-fn confirm_input<R: BufRead, W: Write>(message: String, reader: &mut R, writer: &mut W) -> Result<bool, AppError> {
+fn check_trash_status(trash_dir: &Path) -> Result<(usize, bool), AppError> {
+    let files_dir = trash_dir.join(TRASH_FILES_DIR_NAME);
+    let info_dir = trash_dir.join(TRASH_INFO_DIR_NAME);
+    let files_dir_count = fs::read_dir(&files_dir)
+        .map_err(|source| AppError::Io {
+            path: files_dir.clone(),
+            source,
+        })?
+        .count();
+    let info_dir_count = fs::read_dir(&info_dir)
+        .map_err(|source| AppError::Io {
+            path: info_dir.clone(),
+            source,
+        })?
+        .count();
+    Ok((files_dir_count, files_dir_count == 0 && info_dir_count == 0))
+}
+
+fn confirm_input<R: BufRead, W: Write>(reader: &mut R, writer: &mut W, message: String) -> Result<bool, AppError> {
     let mut input = String::new();
     loop {
         write!(writer, "{}", message)?;
@@ -118,7 +151,7 @@ mod tests {
             let mut writer = Vec::new();
             let message = "Do you want to empty? [Y/n]: ".to_string();
 
-            let result = confirm_input(message, &mut reader, &mut writer).unwrap();
+            let result = confirm_input(&mut reader, &mut writer, message).unwrap();
 
             assert_eq!(result, case.expected_result, "Failed on: {}", case.description);
 
@@ -134,7 +167,7 @@ mod tests {
         let mut writer = Vec::new();
         let message = "Do you want to empty? [Y/n]: ".to_string();
 
-        let result = confirm_input(message, &mut reader, &mut writer).unwrap();
+        let result = confirm_input(&mut reader, &mut writer, message).unwrap();
 
         assert!(result, "Should return true after an invalid input");
 
