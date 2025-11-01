@@ -1186,8 +1186,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "trash-command"
-version = "0.9.1"
+name = "trash-tool"
+version = "0.10.0"
 dependencies = [
  "chrono",
  "clap",
