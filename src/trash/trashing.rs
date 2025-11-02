@@ -21,6 +21,10 @@ pub fn handle_move_to_trash(files: &[String]) -> Result<(), AppError> {
     let mut trashed: Vec<String> = Vec::new();
     for file in files {
         let path = Path::new(file);
+        if !path.exists() {
+            eprintln!("Failed to access path: '{}' does not exist.", path.display());
+            continue;
+        }
         match resolve_target_trash(path, &mounts) {
             Ok(target_trash) => {
                 if let Err(e) = target_trash.ensure_structure_exists() {
@@ -36,7 +40,9 @@ pub fn handle_move_to_trash(files: &[String]) -> Result<(), AppError> {
             Err(e) => eprintln!("Could not determine trash location for '{}': {}", path.display(), e),
         }
     }
-    println!("Trashed: {}", trashed.join(", "));
+    if !trashed.is_empty() {
+        println!("Trashed: {}", trashed.join(", "));
+    }
     Ok(())
 }
 
