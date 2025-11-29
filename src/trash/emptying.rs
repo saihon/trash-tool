@@ -85,23 +85,52 @@ fn confirm_input<W: Write, R: BufRead>(writer: &mut W, reader: &mut R, message: 
 }
 
 /// Empties a single trash directory according to the FreeDesktop.org specification.
-/// This involves recursively removing the `files` and `info` directories and then recreating them.
 fn empty_single_trash_dir(trash_root: &Path) -> Result<(), AppError> {
     let targets = [TRASH_FILES_DIR_NAME, TRASH_INFO_DIR_NAME];
+    let mut error_occurred = false;
     for target in targets {
         let dir = trash_root.join(target);
-        if dir.is_dir() {
-            if let Err(source) = fs::remove_dir_all(&dir) {
-                return Err(AppError::Io { path: dir, source });
-            }
+        if !dir.exists() {
+            continue;
         }
-        // Recreate the empty directory.
-        if let Err(source) = fs::create_dir_all(&dir) {
-            return Err(AppError::Io { path: dir, source });
+
+        let entries = match fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(e) => {
+                eprintln!("Failed to read directory '{}': {}", dir.display(), e);
+                error_occurred = true;
+                continue;
+            }
+        };
+
+        for entry in entries {
+            match entry {
+                Ok(entry) => {
+                    let path = entry.path();
+                    let result = if path.is_dir() {
+                        fs::remove_dir_all(&path)
+                    } else {
+                        fs::remove_file(&path)
+                    };
+
+                    if let Err(e) = result {
+                        eprintln!("Failed to remove '{}': {}", path.display(), e);
+                        error_occurred = true;
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to read directory entry in '{}': {}", dir.display(), e);
+                    error_occurred = true;
+                }
+            }
         }
     }
 
-    Ok(())
+    if error_occurred {
+        Err(AppError::Ignorable)
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -220,27 +249,29 @@ mod tests {
     fn test_empty_single_trash_dir_permission_error() -> Result<(), AppError> {
         let trash_root = tempdir()?;
         let files_dir = trash_root.path().join(TRASH_FILES_DIR_NAME);
+        let info_dir = trash_root.path().join(TRASH_INFO_DIR_NAME);
         fs::create_dir(&files_dir)?;
-        File::create(files_dir.join("some_file.txt"))?;
+        fs::create_dir(&info_dir)?;
+        let file_path = files_dir.join("some_file.txt");
+        File::create(&file_path)?;
 
-        let mut perms = fs::metadata(trash_root.path())?.permissions();
+        let mut perms = fs::metadata(&files_dir)?.permissions();
         perms.set_mode(0o555); // r-xr-xr-x
-        fs::set_permissions(trash_root.path(), perms)?;
+        fs::set_permissions(&files_dir, perms)?;
 
         let result = empty_single_trash_dir(trash_root.path());
 
         assert!(result.is_err(), "Expected an error due to permission issues");
-        if let Err(AppError::Io { path, .. }) = result {
-            // The error should be about the `files` directory inside the read-only parent.
-            assert_eq!(path, files_dir);
+        if let Err(e) = result {
+            assert!(matches!(e, AppError::Ignorable), "Expected AppError::Ignorable, got {:?}", e);
         } else {
-            panic!("Expected AppError::Io, but got a different error or Ok");
+            panic!("Expected an error but got Ok");
         }
 
         // Teardown
-        let mut perms = fs::metadata(trash_root.path())?.permissions();
+        let mut perms = fs::metadata(&files_dir)?.permissions();
         perms.set_mode(0o755);
-        fs::set_permissions(trash_root.path(), perms)?;
+        fs::set_permissions(&files_dir, perms)?;
 
         Ok(())
     }
